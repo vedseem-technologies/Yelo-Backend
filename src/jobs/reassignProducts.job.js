@@ -8,7 +8,6 @@ async function reassignAllProducts() {
     await assignProductToShops(product)
   }
 
-  console.log("✅ Product reassignment completed")
 }
 
 module.exports = reassignAllProducts

@@ -62,7 +62,6 @@ const connectDB = async (retries = 3, delay = 2000) => {
       }
       
       const waitTime = delay * attempt
-      console.log(`  Retrying in ${waitTime}ms...`)
       await new Promise(resolve => setTimeout(resolve, waitTime))
     }
   }

@@ -27,9 +27,6 @@ exports.uploadAndCompressImage = async (req, res) => {
 
     const { folder = 'products', filename } = req.body;
 
-    console.log(`🖼️ Processing image upload: ${req.file.originalname}`);
-    console.log(`📁 Target folder: ${folder}`);
-    console.log(`📏 File size: ${(req.file.size / 1024).toFixed(2)} KB`);
 
     const result = await cloudinaryService.uploadSingle(req.file.buffer, {
       folder,
@@ -68,9 +65,6 @@ exports.uploadAndCompressImages = async (req, res) => {
 
     const { folder = 'products' } = req.body;
 
-    console.log(`🖼️ Processing ${req.files.length} images for upload`);
-    console.log(`📁 Target folder: ${folder}`);
-
     const buffers = req.files.map(file => file.buffer);
     const filenames = req.files.map(file => file.originalname.split('.')[0]);
 
@@ -82,7 +76,6 @@ exports.uploadAndCompressImages = async (req, res) => {
     const successful = results.filter(r => !r.error);
     const failed = results.filter(r => r.error);
 
-    console.log(`✅ Upload complete: ${successful.length} successful, ${failed.length} failed`);
 
     res.json({
       success: true,
@@ -92,7 +85,7 @@ exports.uploadAndCompressImages = async (req, res) => {
       failed: failed.length
     });
   } catch (error) {
-    console.error("❌ Error uploading images to Cloudinary:", error);
+    console.error("Error uploading images to Cloudinary:", error);
     res.status(500).json({
       success: false,
       message: error.message || "Failed to upload images"

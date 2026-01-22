@@ -115,20 +115,15 @@ async function getProductsByShop({
 
   const skip = (Number(page) - 1) * Number(limit)
   
-  // Debug logging for luxury shop queries
-  if (shopSlug.startsWith('luxury')) {
-    console.log(`🔍 Luxury shop query for "${shopSlug}":`, JSON.stringify(query, null, 2))
-  }
+ 
   
   const total = await Product.countDocuments(query).maxTimeMS(30000)
   
-  if (shopSlug.startsWith('luxury')) {
-    console.log(`📊 Found ${total} products for luxury shop "${shopSlug}"`)
-  }
+ 
 
   const products = await Product.find(query)
     .allowDiskUse(true)
-    .maxTimeMS(30000) // 30 second timeout
+    .maxTimeMS(30000) 
     .sort(sortQuery)
     .skip(skip)
     .limit(Number(limit))

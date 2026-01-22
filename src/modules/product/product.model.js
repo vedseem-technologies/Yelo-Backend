@@ -11,14 +11,14 @@ const productSchema = new mongoose.Schema(
 
     baseSlug: {
       type: String,
-      required: false, 
+      required: false,
       lowercase: true,
       trim: true
     },
 
     slug: {
       type: String,
-      required: false, 
+      required: false,
       unique: true,
       index: true,
       lowercase: true,
@@ -59,12 +59,12 @@ const productSchema = new mongoose.Schema(
     },
 
     productType: {
-      type: String, 
+      type: String,
       index: true
     },
 
     subcategory: {
-      type: String, 
+      type: String,
       index: true
     },
 
@@ -74,12 +74,12 @@ const productSchema = new mongoose.Schema(
     },
 
     material: {
-      type: [String], 
+      type: [String],
       index: true
     },
 
     fit: {
-      type: String 
+      type: String
     },
 
     category: {
@@ -155,7 +155,7 @@ const productSchema = new mongoose.Schema(
 
     vendorSlug: {
       type: String,
-      required: false, 
+      required: false,
       index: true,
       lowercase: true,
       trim: true
@@ -335,20 +335,20 @@ productSchema.pre("validate", function () {
   // Generate slug as baseSlug-vendorSlug for database uniqueness
   // Frontend will construct vendor-slug/product-slug URLs for SEO
   if (!this.slug) {
-    // Generate a short unique ID (last 6 chars of timestamp in base36)
-    const uniqueId = Date.now().toString(36).slice(-6)
 
+    const uniqueId = Date.now().toString(36).slice(-6)
+    console.log("UNIQUE ID:", uniqueId);
     if (this.baseSlug && this.vendorSlug) {
       this.slug = `${this.baseSlug}-${this.vendorSlug}-${uniqueId}`
+      console.log("if-SLUG:", this.slug);
     } else if (this.baseSlug) {
-      // If vendorSlug is missing, use baseSlug with unique ID
       this.slug = `${this.baseSlug}-${uniqueId}`
+      console.log("else-SLUG:", this.slug);
     }
 
-    console.log(`Generated unique slug: ${this.slug}`)
   }
 
-  // Ensure slug and baseSlug are set (validation will fail if not)
+
   if (!this.baseSlug) {
     throw new Error('baseSlug is required. Provide either baseSlug or name field.')
   }
@@ -356,7 +356,6 @@ productSchema.pre("validate", function () {
     throw new Error('slug is required. Provide either slug or both baseSlug and vendorSlug fields.')
   }
 
-  // Assign majorCategory based on brand presence: if brand exists, it's LUXURY, otherwise AFFORDABLE
   this.majorCategory = (this.brand && this.brand.trim() !== '') ? "LUXURY" : "AFFORDABLE"
 
   // Auto-populate subcategory from productType if not set
@@ -366,11 +365,9 @@ productSchema.pre("validate", function () {
   }
 })
 
-// Slug deduplication - ensure unique slugs before saving
-productSchema.pre("save", async function (next) {
-  // Only check for duplicates if this is a new document
-  if (!this.isNew) {
-    return next()
+productSchema.pre("save", async function () {
+  if (!this.isNew && !this.isModified('slug')) {
+    return
   }
 
   const Product = this.constructor
@@ -382,27 +379,28 @@ productSchema.pre("save", async function (next) {
 
   while (!isUnique) {
     try {
-      const existingProduct = await Product.findOne({ slug: this.slug, _id: { $ne: this._id } }).lean()
+      const existingProduct = await Product.findOne({
+        slug: this.slug,
+        _id: { $ne: this._id }
+      }).lean()
 
       if (!existingProduct) {
         isUnique = true
         console.log(`Unique slug found: ${this.slug}`)
       } else {
-        // Slug exists, append counter
         this.slug = `${baseSlug}-${counter}`
         counter++
         console.log(`Slug already exists, trying: ${this.slug}`)
       }
     } catch (error) {
       console.error('Error checking slug uniqueness:', error)
-      return next(error)
+      throw error  // Throw instead of next(error)
     }
   }
 
-  next()
+  // No need to call next() with async/await
 })
 
-// Virtual for SEO-friendly URL format
 productSchema.virtual('seoUrl').get(function () {
   if (this.vendorSlug && this.baseSlug) {
     return `${this.vendorSlug}/${this.baseSlug}`
@@ -410,31 +408,27 @@ productSchema.virtual('seoUrl').get(function () {
   return this.slug
 })
 
-// Auto-assign products to shops after save (create or update)
 productSchema.post('save', async function () {
   try {
     const { assignProductToShops } = require("../assignment/assignment.service")
     await assignProductToShops(this)
 
-    // Update category counts in background (non-blocking)
     const { updateCategoryCounts } = require("../category/category.service")
     updateCategoryCounts().catch(err => {
       console.error('Error updating category counts after product save:', err.message)
     })
   } catch (error) {
     console.error(`Error auto-assigning product ${this._id} to shops:`, error.message)
-    // Don't throw - assignment failure shouldn't prevent product save
+
   }
 })
 
-// Auto-assign products to shops after update
 productSchema.post('findOneAndUpdate', async function (doc) {
   if (doc) {
     try {
       const { assignProductToShops } = require("../assignment/assignment.service")
       await assignProductToShops(doc)
 
-      // Update category counts in background (non-blocking)
       const { updateCategoryCounts } = require("../category/category.service")
       updateCategoryCounts().catch(err => {
         console.error('Error updating category counts after product update:', err.message)
@@ -444,13 +438,10 @@ productSchema.post('findOneAndUpdate', async function (doc) {
     }
   }
 })
-
-// Update category counts after product deletion (for findOneAndDelete, findByIdAndDelete, etc.)
 productSchema.post('findOneAndDelete', async function (doc) {
   if (doc) {
     try {
       const { updateCategoryCounts } = require("../category/category.service")
-      // Run in background - don't block deletion
       updateCategoryCounts().catch(err => {
         console.error('Error updating category counts after product delete:', err.message)
       })
@@ -460,11 +451,10 @@ productSchema.post('findOneAndDelete', async function (doc) {
   }
 })
 
-// Update category counts after product removal (for document.remove())
+
 productSchema.post('remove', async function () {
   try {
     const { updateCategoryCounts } = require("../category/category.service")
-    // Run in background - don't block deletion
     updateCategoryCounts().catch(err => {
       console.error('Error updating category counts after product remove:', err.message)
     })

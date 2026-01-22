@@ -39,14 +39,14 @@ async function compressImageFile(filePath, quality = 20) {
     // Check if file is already WebP - ConvertAPI doesn't support WebP→WebP conversion
     const fileExt = path.extname(filePath).toLowerCase();
     if (fileExt === '.webp') {
-      console.log("ℹ️ File is already WebP - reading and returning as-is");
+    
       return await fs.readFile(filePath);
     }
     
     // Read file to check buffer format
     const fileBuffer = await fs.readFile(filePath);
     if (isWebP(fileBuffer)) {
-      console.log("ℹ️ File buffer is WebP format - returning as-is");
+     
       return fileBuffer;
     }
     
@@ -82,11 +82,11 @@ async function compressImageFile(filePath, quality = 20) {
             resizedFileUrl = resizedFiles[0]; // Fallback to file path if URL not available
           }
         } else {
-          console.log("⚠️ Resize step returned no files, using original");
+          console.log(" Resize step returned no files, using original");
         }
       } catch (resizeError) {
         // If resize fails, use original file for direct conversion
-        console.log("⚠️ Resize step failed, trying direct conversion:", resizeError.message);
+        console.log("Resize step failed, trying direct conversion:", resizeError.message);
       }
       
       // Step B: Convert resized image to WebP with compression
@@ -156,7 +156,6 @@ async function compressImageFile(filePath, quality = 20) {
       // Handle WebP-to-WebP conversion error
       const errorMessage = error.message || String(error);
       if (errorMessage.includes('webp') && errorMessage.includes('File must be a file')) {
-        console.log("⚠️ ConvertAPI rejected WebP file - reading original file");
         return await fs.readFile(filePath);
       }
       
@@ -168,7 +167,6 @@ async function compressImageFile(filePath, quality = 20) {
             ? errorData.InvalidParameters.File[0] 
             : errorData.InvalidParameters.File;
           if (fileError && fileError.includes('webp')) {
-            console.log("⚠️ ConvertAPI validation error for WebP file - reading original file");
             return await fs.readFile(filePath);
           }
         }
@@ -180,7 +178,6 @@ async function compressImageFile(filePath, quality = 20) {
     // Final catch: if error is about WebP, return original file
     const errorMessage = error.message || String(error);
     if (errorMessage.includes('webp') || errorMessage.includes('WebP')) {
-      console.log("⚠️ WebP-related error detected - reading original file as fallback");
       try {
         return await fs.readFile(filePath);
       } catch (readError) {
@@ -259,7 +256,6 @@ async function compressImageBuffer(imageBuffer, originalFileName = "image.jpg", 
     
     // If buffer is WebP or filename indicates WebP, return as-is
     if (isWebP(imageBuffer) || fileExt === '.webp' || detectedFormat === '.webp') {
-      console.log("ℹ️ File is already WebP - returning as-is (skipping ConvertAPI to avoid WebP→WebP error)");
       return imageBuffer; // Return original, no compression needed
     }
     
@@ -282,7 +278,6 @@ async function compressImageBuffer(imageBuffer, originalFileName = "image.jpg", 
       // Double-check: Read back and verify it's not WebP before sending to ConvertAPI
       const verifyBuffer = await fs.readFile(tempInputPath);
       if (isWebP(verifyBuffer)) {
-        console.log("ℹ️ Detected WebP format after writing temp file - returning as-is");
         await fs.unlink(tempInputPath).catch(() => {});
         return imageBuffer;
       }
@@ -394,7 +389,6 @@ async function compressImageBuffer(imageBuffer, originalFileName = "image.jpg", 
       // Handle specific WebP-to-WebP conversion error
       const errorMessage = error.message || String(error);
       if (errorMessage.includes('webp') && errorMessage.includes('File must be a file')) {
-        console.log("⚠️ ConvertAPI rejected WebP file - file is already WebP format, returning as-is");
         return imageBuffer; // Return original buffer if it's already WebP
       }
       
@@ -406,7 +400,6 @@ async function compressImageBuffer(imageBuffer, originalFileName = "image.jpg", 
             ? errorData.InvalidParameters.File[0] 
             : errorData.InvalidParameters.File;
           if (fileError && fileError.includes('webp')) {
-            console.log("⚠️ ConvertAPI validation error for WebP file - returning original buffer");
             return imageBuffer; // Return original buffer
           }
         }
@@ -418,7 +411,6 @@ async function compressImageBuffer(imageBuffer, originalFileName = "image.jpg", 
     // Final catch: if error is about WebP, return original buffer
     const errorMessage = error.message || String(error);
     if (errorMessage.includes('webp') || errorMessage.includes('WebP')) {
-      console.log("⚠️ WebP-related error detected - returning original buffer as fallback");
       return imageBuffer;
     }
     

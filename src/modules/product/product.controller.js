@@ -112,10 +112,7 @@ exports.getAllProducts = async (req, res) => {
     const skip = (Number(page) - 1) * Number(limit)
 
     // Log query details for debugging
-    console.log('📊 getAllProducts query:', JSON.stringify(query, null, 2))
-    console.log('📊 Sort options:', JSON.stringify(sortQuery, null, 2))
-    console.log('📊 Pagination:', { page, limit, skip })
-
+  
     const queryStartTime = Date.now()
 
     // Add query timeout (30 seconds) to prevent hanging
@@ -128,13 +125,12 @@ exports.getAllProducts = async (req, res) => {
       .lean()
 
     const queryTime = Date.now() - queryStartTime
-    console.log(`⏱️  Query took ${queryTime}ms, found ${products.length} products`)
+ 
 
     // Add timeout for count as well
     const countStartTime = Date.now()
     const total = await Product.countDocuments(query).maxTimeMS(30000)
     const countTime = Date.now() - countStartTime
-    console.log(`⏱️  Count took ${countTime}ms, total: ${total}`)
 
     const response = {
       success: true,
@@ -147,12 +143,11 @@ exports.getAllProducts = async (req, res) => {
       }
     }
 
-    console.log(`✅ Returning ${products.length} products, total: ${total}`)
 
     res.json(response)
   } catch (err) {
     // Log full error details for debugging
-    console.error('❌ Error in getAllProducts:', {
+    console.error(' Error in getAllProducts:', {
       message: err.message,
       name: err.name,
       code: err.code,
@@ -525,8 +520,6 @@ exports.getTrendingProducts = async (req, res) => {
   try {
     const { limit = 20 } = req.query
 
-    console.log(`Fetching trending products (limit: ${limit})...`)
-
     const products = await Product.find({
       isActive: true
     })
@@ -536,7 +529,6 @@ exports.getTrendingProducts = async (req, res) => {
       .limit(Number(limit))
       .lean()
 
-    console.log(`Found ${products.length} trending products`)
 
     // Add SEO-friendly URLs to products
     const productsWithSeoUrl = products.map(product => ({
