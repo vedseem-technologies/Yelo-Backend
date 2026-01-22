@@ -1,0 +1,125 @@
+const Order = require("./order.model")
+const VendorOrder = require("./vendorOrder.model")
+const Cart = require("../cart/cart.model")
+const Vendor = require("../vendors/vendors.model")
+
+async function placeOrder(userId, orderData = {}) {
+  let orderItems = []
+  let totalAmount = 0
+  let itemsForVendorGrouping = []
+
+  // Check if items are provided directly in orderData (from checkout)
+  if (orderData.items && orderData.items.length > 0) {
+    // Use items from orderData
+    orderItems = orderData.items.map(item => ({
+      productId: item.productId,
+      quantity: item.quantity || 1,
+      price: item.price,
+      color: item.color,
+      size: item.size
+    }))
+    totalAmount = orderData.totalAmount || orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    
+    // For vendor grouping, we'll need to fetch product details
+    const Product = require("../product/product.model")
+    const Vendor = require("../vendors/vendors.model")
+    
+    for (const item of orderData.items) {
+      const product = await Product.findById(item.productId)
+      if (product) {
+        let vendorId = product.vendorId
+        if (!vendorId && product.vendorSlug) {
+          const vendor = await Vendor.findOne({ slug: product.vendorSlug })
+          vendorId = vendor?._id
+        }
+        if (vendorId) {
+          itemsForVendorGrouping.push({
+            productId: product,
+            vendorId: { _id: vendorId },
+            quantity: item.quantity || 1,
+            priceAtAdd: item.price
+          })
+        }
+      }
+    }
+  } else {
+    // Fetch from cart (backward compatibility)
+    const cart = await Cart.findOne({ userId })
+      .populate("items.productId")
+      .populate("items.vendorId")
+
+    if (!cart || cart.items.length === 0) {
+      throw new Error("Cart is empty")
+    }
+
+    orderItems = cart.items.map(i => ({
+      productId: i.productId._id,
+      quantity: i.quantity,
+      price: i.priceAtAdd,
+      color: i.color,
+      size: i.size
+    }))
+
+    totalAmount = cart.items.reduce(
+      (sum, i) => sum + i.quantity * i.priceAtAdd,
+      0
+    )
+
+    itemsForVendorGrouping = cart.items
+  }
+
+  // Create master order
+  const order = await Order.create({
+    userId,
+    items: orderItems,
+    totalAmount,
+    deliveryAddress: orderData.deliveryAddress,
+    paymentMethod: orderData.paymentMethod,
+  })
+
+  // Group items by vendorId
+  const byVendor = {}
+  for (const i of itemsForVendorGrouping) {
+    const vId = i.vendorId._id.toString()
+    if (!byVendor[vId]) byVendor[vId] = []
+    byVendor[vId].push(i)
+  }
+
+  // 4) Create VendorOrders
+  for (const vendorId of Object.keys(byVendor)) {
+    const vendor = await Vendor.findById(vendorId)
+    const items = byVendor[vendorId]
+
+    const vendorItems = items.map(i => ({
+      productId: i.productId._id,
+      quantity: i.quantity,
+      price: i.priceAtAdd
+    }))
+
+    const subtotal = items.reduce(
+      (sum, i) => sum + i.quantity * i.priceAtAdd,
+      0
+    )
+
+    await VendorOrder.create({
+      orderId: order._id,
+      vendorId,
+      vendorName: vendor ? vendor.name : "Unknown Vendor",
+      items: vendorItems,
+      subtotal
+    })
+  }
+
+  // 5) Clear cart after order is placed (always clear, regardless of source)
+  const cart = await Cart.findOne({ userId })
+  if (cart) {
+    cart.items = []
+    await cart.save()
+  }
+
+  return order
+}
+
+module.exports = {
+  placeOrder
+}
