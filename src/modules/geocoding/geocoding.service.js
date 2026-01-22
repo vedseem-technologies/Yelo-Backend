@@ -29,20 +29,17 @@ function getGoogleMapsApiKey() {
  * @returns {Promise<{address: string, city: string, state: string, pincode: string, fullAddress: string}>}
  */
 async function reverseGeocode(latitude, longitude) {
-  console.log('[Geocoding] Starting reverse geocode for:', { latitude, longitude });
+ 
   
   const apiKey = getGoogleMapsApiKey();
-  console.log('[Geocoding] API key found:', apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND');
 
   try {
     const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`;
-    console.log('[Geocoding] Making request to Google Maps API...');
     
     const response = await axios.get(url, {
       timeout: 10000, // 10 second timeout
     });
     
-    console.log('[Geocoding] Response status:', response.status);
 
     const data = response.data;
 

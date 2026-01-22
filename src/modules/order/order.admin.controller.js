@@ -38,29 +38,7 @@ async function getAllAdminOrders(req, res) {
       .lean()
       .maxTimeMS(10000) // 10 second timeout for the query
     
-    // Debug: Log userId data structure for first few orders to verify population
-    orders.slice(0, 3).forEach((order, index) => {
-      if (order.userId) {
-        // console.log(`🔍 Order ${index + 1} userId data:`, {
-        //   orderId: order._id || order.orderId,
-        //   hasUserId: !!order.userId,
-        //   userIdType: typeof order.userId,
-        //   userIdIsObject: typeof order.userId === 'object',
-        //   userIdKeys: order.userId && typeof order.userId === 'object' ? Object.keys(order.userId) : [],
-        //   hasName: !!order.userId?.name,
-        //   hasFullName: !!order.userId?.fullName,
-        //   name: order.userId?.name,
-        //   fullName: order.userId?.fullName,
-        //   email: order.userId?.email,
-        //   phone: order.userId?.phone
-        // });
-      } else {
-        console.warn(`⚠️ Order ${index + 1} has no userId:`, {
-          orderId: order._id || order.orderId,
-          userId: order.userId
-        });
-      }
-    });
+  
     
     res.json({
       success: true,
@@ -79,17 +57,13 @@ async function getAllAdminOrders(req, res) {
   }
 }
 
-/**
- * Get single order by ID for admin
- */
+
 async function getAdminOrderById(req, res) {
   try {
     const { id } = req.params
     const startTime = Date.now()
     
-    console.log(`🔍 Fetching order details for ID: ${id}`)
     
-    // Fetch order with minimal populate first - just get the basic order
     const order = await Order.findById(id)
       .lean()
       .maxTimeMS(5000) // 5 second timeout for initial fetch
@@ -102,7 +76,6 @@ async function getAdminOrderById(req, res) {
     }
     
     const fetchTime = Date.now() - startTime
-    console.log(`✅ Order fetched in ${fetchTime}ms`)
     
     // Populate userId separately with timeout
     if (order.userId) {
@@ -221,7 +194,7 @@ async function getAdminOrderById(req, res) {
           // Race between vendor fetch and timeout - skip vendors if timeout
           const vendorCount = await Promise.race([vendorPromise, vendorTimeout])
           if (vendorCount && vendorCount > 0) {
-            console.log(`✅ Vendors populated: ${vendorCount} vendors in ${Date.now() - vendorStartTime}ms`)
+            console.log(` Vendors populated: ${vendorCount} vendors in ${Date.now() - vendorStartTime}ms`)
           }
         }
       } catch (vendorError) {
@@ -231,25 +204,6 @@ async function getAdminOrderById(req, res) {
     }
     
     const totalTime = Date.now() - startTime
-    console.log(`✅ Order details fetch completed in ${totalTime}ms`)
-    
-    // Debug: Log userId data
-    if (order.userId) {
-      console.log('🔍 Order details userId data:', {
-        orderId: order._id || order.orderId,
-        hasName: !!order.userId?.name,
-        hasFullName: !!order.userId?.fullName,
-        name: order.userId?.name || 'MISSING',
-        fullName: order.userId?.fullName || 'MISSING',
-        email: order.userId?.email || 'MISSING',
-        phone: order.userId?.phone || 'MISSING'
-      });
-    } else {
-      console.warn('⚠️ Order has no userId populated:', {
-        orderId: order._id || order.orderId,
-        userId: order.userId
-      });
-    }
     
     res.json({
       success: true,
@@ -264,9 +218,6 @@ async function getAdminOrderById(req, res) {
   }
 }
 
-/**
- * Update order status (admin only)
- */
 async function updateOrderStatus(req, res) {
   try {
     const { id } = req.params

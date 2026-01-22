@@ -245,7 +245,6 @@ exports.updateCategory = async (req, res) => {
     await category.save()
     await updateCategoryCounts()
 
-    console.log(`Category updated: ${category.name} (${category.slug}), isActive: ${category.isActive}`)
 
     res.json({
       success: true,
@@ -290,11 +289,9 @@ exports.deleteCategory = async (req, res) => {
       })
     }
 
-    console.log(`Deleting category: ${category.name} (${category.slug})`)
 
     // Save subcategories as free subcategories before deleting
     if (category.subcategories && category.subcategories.length > 0) {
-      console.log(`Moving ${category.subcategories.length} subcategories to free subcategories`)
       
       for (const subcat of category.subcategories) {
         // Check if free subcategory already exists
@@ -314,7 +311,6 @@ exports.deleteCategory = async (req, res) => {
             createdAt: subcat.createdAt || new Date(),
             isActive: subcat.isActive !== false
           })
-          console.log(`Created free subcategory: ${subcat.name}`)
         } else {
           console.log(`Free subcategory already exists: ${subcat.name}`)
         }
@@ -331,7 +327,6 @@ exports.deleteCategory = async (req, res) => {
       })
     }
 
-    console.log(`Category deleted successfully: ${category.name}`)
 
     await updateCategoryCounts()
 
@@ -520,12 +515,10 @@ exports.updateCounts = async (req, res) => {
           console.log(`Merged ${subcategoriesToAdd.length} subcategories from mens-wear image category`)
         }
         
-        // Delete the image category permanently
         await Category.deleteOne({ _id: imageCategory._id })
-        console.log(`Deleted duplicate mens-wear category with image`)
+
       }
       
-      // Ensure mens-jackets subcategory exists
       const hasJackets = nonImageCategory.subcategories.some(s => 
         s.slug === 'mens-jackets' || s.name === 'Jackets'
       )
@@ -538,11 +531,9 @@ exports.updateCounts = async (req, res) => {
           isActive: true
         })
         await nonImageCategory.save()
-        console.log(`Added Jackets subcategory to mens-wear category (slug: ${nonImageCategory.slug})`)
       }
     }
     
-    // Handle womens-wear duplicates
     const womensWearCategories = await Category.find({ 
       $or: [
         { slug: "women's-wear" },

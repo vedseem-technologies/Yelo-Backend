@@ -14,9 +14,6 @@ async function uploadSingle(buffer, options = {}) {
     }
   } = options;
 
-  console.log(`Uploading image to Cloudinary...`);
-  console.log(` Folder: ${folder}`);
-  console.log(`Original size: ${(buffer.length / 1024).toFixed(2)} KB`);
 
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -34,12 +31,7 @@ async function uploadSingle(buffer, options = {}) {
           return reject(error);
         }
 
-        console.log(` Image uploaded successfully!`);
-        console.log(` Public ID: ${result.public_id}`);
-        console.log(`URL: ${result.secure_url}`);
-        console.log(` Format: ${result.format}`);
-        console.log(` Dimensions: ${result.width}x${result.height}`);
-        console.log(` Size: ${(result.bytes / 1024).toFixed(2)} KB`);
+     
 
         resolve({
           url: result.secure_url,
@@ -63,13 +55,12 @@ async function uploadMultiple(buffers, options = {}) {
     filenames = []
   } = options;
 
-  console.log(`Uploading ${buffers.length} images to Cloudinary in parallel...`);
 
   const uploadPromises = buffers.map((buffer, index) => {
     const filename = filenames[index];
     return uploadSingle(buffer, { folder, filename })
       .then(result => {
-        console.log(` Image ${index + 1}/${buffers.length} uploaded`);
+      
         return result;
       })
       .catch(error => {
@@ -86,7 +77,6 @@ async function uploadMultiple(buffers, options = {}) {
   const successful = results.filter(r => !r.error);
   const failed = results.filter(r => r.error);
 
-  console.log(`Uploaded ${successful.length}/${buffers.length} images successfully`);
   if (failed.length > 0) {
     console.log(` Failed uploads: ${failed.length}`);
   }
@@ -95,16 +85,13 @@ async function uploadMultiple(buffers, options = {}) {
 }
 
 async function deleteImage(publicId) {
-  console.log(` Deleting image: ${publicId}`);
 
   try {
     const result = await cloudinary.uploader.destroy(publicId);
 
     if (result.result === 'ok') {
-      console.log(`Image deleted successfully: ${publicId}`);
       return { success: true, publicId };
     } else {
-      console.log(` Image deletion result: ${result.result}`);
       return { success: false, publicId, result: result.result };
     }
   } catch (error) {

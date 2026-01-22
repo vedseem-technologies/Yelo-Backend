@@ -160,7 +160,6 @@ async function updateAddress(req, res) {
     // Combine address lines for backward compatibility
     addressUpdate.$set.address = [addressLine1, addressLine2].filter(Boolean).join(', ');
     
-    console.log('[User Controller] Address update object to save:', JSON.stringify(addressUpdate, null, 2));
 
     // Save to database using $set to ensure all fields are updated
     const user = await User.findByIdAndUpdate(
@@ -212,7 +211,6 @@ async function updateAddress(req, res) {
     };
 
     // Log the full user object being returned
-    console.log('[User Controller] Full user object being returned:', JSON.stringify(responseUser, null, 2));
     console.log('[User Controller] Address fields check:', {
       addressLine1: responseUser.addressLine1,
       addressLine2: responseUser.addressLine2,

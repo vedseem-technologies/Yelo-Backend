@@ -369,7 +369,6 @@ const shops = [
 async function seedShops() {
   await Shop.deleteMany({})
   await Shop.insertMany(shops)
-  console.log("✅ Shops seeded successfully")
 }
 
 module.exports = seedShops

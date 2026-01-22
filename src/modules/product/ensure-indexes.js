@@ -4,7 +4,6 @@ const Product = require('./product.model')
 
 async function ensureProductIndexes() {
   try {
-    console.log(' Ensuring product indexes are created...')
     
     try {
       const indexes = await Product.collection.getIndexes()
@@ -18,11 +17,9 @@ async function ensureProductIndexes() {
       for (const oldIndexName of indexesToDrop) {
         if (indexNames.includes(oldIndexName)) {
           try {
-            console.log(`Dropping old index: ${oldIndexName}`)
             await Product.collection.dropIndex(oldIndexName)
-            console.log(`Dropped old index: ${oldIndexName}`)
           } catch (dropError) {
-            // Index might not exist or might be in use, that's okay
+            
             if (!dropError.message.includes('index not found')) {
               console.warn(`Could not drop index ${oldIndexName}:`, dropError.message)
             }
@@ -37,13 +34,10 @@ async function ensureProductIndexes() {
     // But we can explicitly ensure they exist using ensureIndexes()
     try {
       await Product.ensureIndexes()
-      console.log('Product indexes ensured')
     } catch (ensureError) {
       // Handle the case where index already exists with different name
       if (ensureError.message.includes('already exists with a different name')) {
         console.warn('Index conflict detected (non-critical):', ensureError.message)
-        console.log(' This usually means an index with the same fields but different name exists')
-        console.log('The existing index will still work, but consider dropping the old one manually')
       } else {
         throw ensureError
       }
@@ -52,9 +46,6 @@ async function ensureProductIndexes() {
     // List all indexes to verify
     const indexes = await Product.collection.getIndexes()
     const indexNames = Object.keys(indexes)
-    
-    console.log(`Total indexes: ${indexNames.length}`)
-    console.log('Index names:', indexNames.join(', '))
     
     // Check for our compound indexes
     const expectedIndexes = [
@@ -80,7 +71,6 @@ async function ensureProductIndexes() {
     
     if (missingIndexes.length > 0) {
       console.warn('Missing indexes:', missingIndexes.join(', '))
-      console.log('Indexes may still be building in the background...')
     } else {
       console.log(' All expected indexes found!')
     }
