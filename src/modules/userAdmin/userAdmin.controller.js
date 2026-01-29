@@ -70,11 +70,18 @@ async function loginAdminUser(req, res) {
             return res.status(403).json({ message: 'Account is inactive' });
         }
 
+        if (!process.env.JWT_SECRET) {
+            console.error('CRITICAL ERROR: JWT_SECRET is not defined in environment variables');
+            return res.status(500).json({ message: 'Internal server error: Security configuration missing' });
+        }
+
         const token = jwt.sign(
             { id: user._id, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
+
+        console.log(`User logged in successfully: ${email}`);
 
         res.status(200).json({
             success: true,
@@ -87,8 +94,11 @@ async function loginAdminUser(req, res) {
             }
         });
     } catch (error) {
-        console.log(error);
-        res.status(500).json({ message: 'Internal server error' });
+        console.error('Error in loginAdminUser:', error);
+        res.status(500).json({ 
+            message: 'Internal server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+        });
     }
 }
 
