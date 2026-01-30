@@ -4,9 +4,13 @@ const jwt = require('jsonwebtoken');
 async function createAdminUser(req, res) {
    try {
     const {full_name, email, phone, role, is_active, password} = req.body;
+    
+    // Normalize email to lowercase
+    const normalizedEmail = email ? email.trim().toLowerCase() : email;
+    
     const userAdmin = new UserAdmin({
         full_name,
-        email,
+        email: normalizedEmail,
         phone,
         role,
         is_active,
@@ -15,7 +19,10 @@ async function createAdminUser(req, res) {
     await userAdmin.save();
     res.status(201).json({message: 'User created successfully'});
    } catch (error) {
-    console.log(error);
+    console.error('Error in createAdminUser:', error);
+    if (error.code === 11000) {
+        return res.status(400).json({message: 'Email already exists'});
+    }
     res.status(500).json({message: 'Internal server error'});
    }
 }
@@ -56,7 +63,17 @@ async function updateAdminUser(req, res) {
 async function loginAdminUser(req, res) {
     try {
         const { email, password } = req.body;
-        const user = await UserAdmin.findOne({ email });
+
+        // Validate input
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Email and password are required' });
+        }
+
+        // Find user with case-insensitive email (handles both old and new email formats)
+        const normalizedEmail = email.trim();
+        const user = await UserAdmin.findOne({ 
+            email: new RegExp(`^${normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
+        });
 
         if (!user) {
             return res.status(401).json({ message: 'Invalid email or password' });
@@ -95,9 +112,11 @@ async function loginAdminUser(req, res) {
         });
     } catch (error) {
         console.error('Error in loginAdminUser:', error);
+        console.error('Error stack:', error.stack);
         res.status(500).json({ 
             message: 'Internal server error',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 }
