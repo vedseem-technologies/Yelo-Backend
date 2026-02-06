@@ -4,8 +4,9 @@ const userSchema = new mongoose.Schema(
   {
     phone: {
       type: String,
-      required: true,
+      required: false, // Changed from true to allow email-only login
       unique: true,
+      sparse: true, // Allows multiple null/undefined values
       index: true
     },
 

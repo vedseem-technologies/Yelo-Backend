@@ -45,6 +45,7 @@ async function updateProfile(req, res) {
       {
         name,
         email,
+        phone, // Allow updating phone number (for account setup)
         avatar,
         isProfileComplete: true
       },

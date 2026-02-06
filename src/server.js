@@ -4,6 +4,9 @@ require("dotenv").config()
 const app = require("./app")
 const connectDB = require("./config/db")
 
+// Mount Mail Auth Routes
+app.use("/api/auth/mail", require("./modules/auth/auth.mail.routes"));
+
 const PORT = process.env.PORT || 5000
 
 const startServer = async () => {
