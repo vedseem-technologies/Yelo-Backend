@@ -86,7 +86,10 @@ async function verifyPayment(req, res) {
     const userId = req.user.userId
     const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body
 
+    console.log(`[Payment Controller] Verifying payment for Order ID: ${orderId}`)
+
     if (!orderId || !razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      console.error("[Payment Controller] Missing payment parameters")
       return res.status(400).json({
         success: false,
         message: "All payment parameters are required"
@@ -96,6 +99,7 @@ async function verifyPayment(req, res) {
     // Verify order belongs to user
     const order = await Order.findOne({ _id: orderId, userId })
     if (!order) {
+      console.error(`[Payment Controller] Order not found: ${orderId}`)
       return res.status(404).json({
         success: false,
         message: "Order not found"
@@ -111,11 +115,41 @@ async function verifyPayment(req, res) {
       .digest("hex")
 
     if (generatedSignature !== razorpaySignature) {
+      console.error("[Payment Controller] Signature verification failed")
       return res.status(400).json({
         success: false,
         message: "Payment verification failed"
       })
     }
+
+    console.log("[Payment Controller] Signature verified. Proceeding to stock deduction...")
+
+    // --- ONLINE PAYMENT STOCK DEDUCTION START ---
+    const { reduceStock } = require("../product/stock.service")
+    try {
+      const itemsToDeduct = order.items.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity
+      }))
+      await reduceStock(itemsToDeduct)
+      console.log("[Payment Controller] Stock deducted successfully for Online order.")
+    } catch (error) {
+      console.error("[Payment Controller] Stock deduction failed for Online order:", error.message)
+      // Note: Payment is already successful at Gateway, but stock failed.
+      // In a real production system, this should trigger a "Refund" or "Manual Review" workflow.
+      // For now, we return an error to the frontend, but the order remains in PLACED/PAID state potentially or we could fail the confirmation.
+      // Better approach here: Mark order as "PAYMENT_RECEIVED_STOCK_FAILED" or similar if we want to handle it manually, 
+      // OR refund immediately. 
+      // As per requirements "Abort order success", we will return error.
+
+      // We should NOT mark order as CONFIRMED.
+      return res.status(400).json({
+        success: false,
+        message: "Payment successful but stock deduction failed. Please contact support.",
+        error: error.message
+      })
+    }
+    // --- ONLINE PAYMENT STOCK DEDUCTION END ---
 
     // Update order with payment details
     const updatedOrder = await Order.findByIdAndUpdate(
@@ -131,13 +165,15 @@ async function verifyPayment(req, res) {
     )
       .populate("items.productId", "name slug images price brand")
 
+    console.log(`[Payment Controller] Order ${orderId} marked as PAID and CONFIRMED.`)
+
     res.json({
       success: true,
       message: "Payment verified successfully",
       data: updatedOrder
     })
   } catch (err) {
-    console.error("Error verifying payment:", err)
+    console.error("[Payment Controller] Error verifying payment:", err)
     res.status(500).json({
       success: false,
       message: err.message

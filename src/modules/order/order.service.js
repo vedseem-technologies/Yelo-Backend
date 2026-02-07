@@ -3,9 +3,11 @@ const VendorOrder = require("./vendorOrder.model")
 const Cart = require("../cart/cart.model")
 const Vendor = require("../vendors/vendors.model")
 const User = require("../user/user.model")
+const { checkStock, reduceStock } = require("../product/stock.service")
 const { sendWhatsAppMessage } = require("../../utils/twilio.utils")
 
 async function placeOrder(userId, orderData = {}) {
+  console.log(`[Order Service] Placing order for user: ${userId}`)
   let orderItems = []
   let totalAmount = 0
   let itemsForVendorGrouping = []
@@ -24,10 +26,10 @@ async function placeOrder(userId, orderData = {}) {
       size: item.size
     }))
     totalAmount = orderData.totalAmount || orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-    
+
     // For vendor grouping, we'll need to fetch product details
     const Product = require("../product/product.model")
-    
+
     for (const item of orderData.items) {
       const product = await Product.findById(item.productId)
       if (product) {
@@ -72,14 +74,54 @@ async function placeOrder(userId, orderData = {}) {
     itemsForVendorGrouping = cart.items
   }
 
+  // --- STOCK VALIDATION START ---
+  console.log("[Order Service] Validating stock for items...")
+  try {
+    const itemsToCheck = orderItems.map(item => ({
+      productId: item.productId,
+      quantity: item.quantity
+    }))
+    await checkStock(itemsToCheck)
+    console.log("[Order Service] Stock validation successful.")
+  } catch (error) {
+    console.error("[Order Service] Stock validation failed:", error.message)
+    throw error
+  }
+  // --- STOCK VALIDATION END ---
+
+  // --- COD STOCK DEDUCTION START ---
+  let isStockDeducted = false
+  if (orderData.paymentMethod === 'COD') {
+    console.log("[Order Service] Payment Method is COD. Deducting stock now...")
+    try {
+      const itemsToDeduct = orderItems.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity
+      }))
+      await reduceStock(itemsToDeduct)
+      isStockDeducted = true
+      console.log("[Order Service] Stock deducted for COD order.")
+    } catch (error) {
+      console.error("[Order Service] failed to deduct stock for COD order:", error.message)
+      throw new Error("Order failed due to insufficient stock")
+    }
+  }
+  // --- COD STOCK DEDUCTION END ---
+
   // Create master order
+  // For COD, if stock is deducted, we can consider it CONFIRMED
+  // For Online, it remains PLACED until payment
+  const initialStatus = (orderData.paymentMethod === 'COD' && isStockDeducted) ? "CONFIRMED" : "PLACED"
+
   const order = await Order.create({
     userId,
     items: orderItems,
     totalAmount,
     deliveryAddress: orderData.deliveryAddress,
     paymentMethod: orderData.paymentMethod,
+    orderStatus: initialStatus // Set appropriate status
   })
+  console.log(`[Order Service] Order created with ID: ${order._id} and Status: ${initialStatus}`)
 
   // Group items by vendorId
   const byVendor = {}
@@ -130,13 +172,13 @@ async function placeOrder(userId, orderData = {}) {
 
   // 6) Send WhatsApp notification to Admin
   const adminWhatsAppNumber = "+916393818467"
-  const orderItemsFormatted = itemsForVendorGrouping.map(i => 
+  const orderItemsFormatted = itemsForVendorGrouping.map(i =>
     `- ${i.productId.name || 'Product'} (x${i.quantity}) - ₹${i.priceAtAdd}`
   ).join('\n')
 
   const address = orderData.deliveryAddress || {}
   const addressStr = `${address.address || address.addressLine1 || ''}, ${address.city || ''}, ${address.state || ''} - ${address.pincode || ''}`
-  
+
   const whatsappBody = `🛍️ *New Order Received!*
 
 *Order ID:* ${order._id}
@@ -178,7 +220,7 @@ Track your order in the app profile section.`
     const cleanPhone = customerPhone.replace(/\D/g, '')
     // Ensure it has country code for Twilio
     const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone
-    
+
     await sendWhatsAppMessage(formattedPhone, customerWhatsappBody)
   }
 
