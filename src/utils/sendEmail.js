@@ -1,25 +1,25 @@
 const sgMail = require("@sendgrid/mail");
 
-// Initialize SendGrid with API Key from environment variables
-if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-} else {
-  console.error("[Mail System] CRITICAL: SENDGRID_API_KEY is missing in environment variables.");
-}
-
 const sendEmail = async ({ email, subject, message, html }) => {
   try {
     console.log(`[Mail System] Preparing to send email via SendGrid API...`);
 
-    if (!process.env.SENDGRID_API_KEY) {
-      throw new Error("SENDGRID_API_KEY is not configured.");
+    // Ensure API Key is set (Lazy loading to handle dotenv load order)
+    if (process.env.SENDGRID_API_KEY) {
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    } else {
+      console.error("[Mail System] CRITICAL: SENDGRID_API_KEY is missing!");
+      throw new Error("SENDGRID_API_KEY is not configured in .env");
     }
+
+    const senderEmail = process.env.MAIL_FROM || "info@yeahlo.in";
+    console.log(`[Mail System] Configured Sender (MAIL_FROM): ${senderEmail}`);
 
     const msg = {
       to: email,
       // Use verified sender identity from SendGrid
       from: {
-        email: process.env.MAIL_FROM || "noreply@yeahlo.in",
+        email: senderEmail,
         name: "YEAHLO Fashion"
       },
       subject: subject,
