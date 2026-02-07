@@ -23,15 +23,15 @@ exports.requestOTP = async (req, res) => {
 
     const otp = generateOTP();
     // Store OTP with expiry (5 minutes) - use normalized email as key
-    otpStore.set(normalizedEmail, { 
-      otp, 
-      expires: Date.now() + 5 * 60 * 1000 
+    otpStore.set(normalizedEmail, {
+      otp,
+      expires: Date.now() + 5 * 60 * 1000
     });
 
     console.log(`[OTP Request] Stored OTP for ${normalizedEmail}: ${otp}`);
 
     const message = `Your OTP for Yeahlo Fashion login is ${otp}. Valid for 5 minutes.`;
-    
+
     // Fancy HTML Template
     const html = `
       <!DOCTYPE html>
@@ -93,18 +93,25 @@ exports.requestOTP = async (req, res) => {
       </html>
     `;
 
-    await sendEmail({
-      email: normalizedEmail,
-      subject: "Your Login OTP - Yeahlo Fashion",
-      message,
-      html,
-    });
+    console.log(`[Auth Mail Controller] Sending email to ${normalizedEmail}...`);
+    try {
+      await sendEmail({
+        email: normalizedEmail,
+        subject: "Your Login OTP - Yeahlo Fashion",
+        message,
+        html,
+      });
+      console.log(`[Auth Mail Controller] Email sent successfully to ${normalizedEmail}`);
+    } catch (emailError) {
+      console.error(`[Auth Mail Controller] FAILED to send email to ${normalizedEmail}:`, emailError);
+      throw emailError; // Re-throw to be caught by outer catch
+    }
 
     res.status(200).json({ success: true, message: "OTP sent successfully" });
 
   } catch (error) {
-    console.error("Request OTP Error:", error);
-    res.status(500).json({ success: false, message: "Failed to send OTP" });
+    console.error("[Auth Mail Controller] Request OTP Error:", error);
+    res.status(500).json({ success: false, message: "Failed to send OTP", error: error.message });
   }
 };
 
@@ -150,7 +157,7 @@ exports.verifyOTP = async (req, res) => {
     otpStore.delete(normalizedEmail);
 
     // Find user by email (case-insensitive)
-    let user = await User.findOne({ 
+    let user = await User.findOne({
       email: new RegExp(`^${normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
     });
 
@@ -170,10 +177,10 @@ exports.verifyOTP = async (req, res) => {
           console.error(`[OTP Verify] Duplicate key error on phone field. This usually means the phone index needs to be fixed.`);
           console.error(`[OTP Verify] Run: node src/scripts/fix-phone-index.js to fix the index`);
           // Try to find user again (might have been created in parallel or exists with null phone)
-          user = await User.findOne({ 
+          user = await User.findOne({
             email: new RegExp(`^${normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
           });
-          
+
           if (!user) {
             // Re-throw with helpful message
             throw new Error("Database index error: Please run 'node src/scripts/fix-phone-index.js' to fix the phone index. Error: " + createError.message);
@@ -204,8 +211,8 @@ exports.verifyOTP = async (req, res) => {
   } catch (error) {
     console.error("[OTP Verify] Error details:", error);
     console.error("[OTP Verify] Error stack:", error.stack);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: error.message || "Login failed",
       error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
