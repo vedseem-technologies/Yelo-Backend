@@ -4,6 +4,7 @@ const sendEmail = async ({ email, subject, message, html }) => {
   try {
     console.log(`[Mail System] Initializing transporter...`);
     console.log(`[Mail System] Config: Host=${process.env.MAIL_HOST}, Port=${process.env.MAIL_PORT}, Secure=${process.env.MAIL_SECURE}, User=${process.env.MAIL_USER}`);
+    console.log(`[Mail System] DNS: IPv4 preferred (configured in index.js)`);
 
     const transporter = nodemailer.createTransport({
       host: process.env.MAIL_HOST,
