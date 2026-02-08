@@ -31,5 +31,6 @@ router.use("/payment", require("../modules/payment/payment.routes"))
 router.use("/notifications", require("../modules/notification/notification.routes"))
 router.use("/upload", require("../modules/upload/upload.routes"))
 router.use("/user-admin", require("../modules/userAdmin/userAdmin.routes"))
+router.use("/campaigns", require("../modules/campaigns/campaigns.routes"))
 
 module.exports = router
